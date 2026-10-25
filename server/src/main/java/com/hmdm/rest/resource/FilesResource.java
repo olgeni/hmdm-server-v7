@@ -608,17 +608,17 @@ public class FilesResource {
 
                 version = this.applicationDAO.findApplicationVersion(apkFileDetails.getPkg(), apkFileDetails.getVersion());
                 if (StringUtil.isEmpty(apkFileDetails.getArch())){
-                    if (version != null) {
+                    if (hasApk(version)) {
                         result.setExists(true);
                     }
                 } else if (apkFileDetails.getArch().equals(Application.ARCH_ARMEABI)) {
                     // If version for arm64 is already uploaded, set the complete flag
                     result.setComplete(version != null && !StringUtil.isEmpty(version.getUrlArm64()));
                     // Check if version is already uploaded
-                    result.setExists(version != null && (!version.isSplit() || !StringUtil.isEmpty(version.getUrlArmeabi())));
+                    result.setExists(hasApk(version) && (!version.isSplit() || !StringUtil.isEmpty(version.getUrlArmeabi())));
                 } else if (apkFileDetails.getArch().equals(Application.ARCH_ARM64)) {
                     result.setComplete(version != null && !StringUtil.isEmpty(version.getUrlArmeabi()));
-                    result.setExists(version != null && (!version.isSplit() || !StringUtil.isEmpty(version.getUrlArm64())));
+                    result.setExists(hasApk(version) && (!version.isSplit() || !StringUtil.isEmpty(version.getUrlArm64())));
                 }
 
                 final List<Application> dbAppsByPkg = this.applicationDAO.findByPackageId(apkFileDetails.getPkg());
@@ -736,5 +736,11 @@ public class FilesResource {
             }
         }
 
+    }
+
+    // A version added by hand has no APK yet: uploading one fills it in, it is not a duplicate
+    private static boolean hasApk(ApplicationVersion version) {
+        return version != null && (!StringUtil.isEmpty(version.getUrl())
+                || !StringUtil.isEmpty(version.getUrlArmeabi()) || !StringUtil.isEmpty(version.getUrlArm64()));
     }
 }
