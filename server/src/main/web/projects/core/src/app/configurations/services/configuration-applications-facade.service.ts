@@ -106,10 +106,12 @@ export class ConfigurationAppsFacadeService {
   });
 
   // Package of the configuration's content app; follows an unsaved change on the MDM tab.
-  // contentAppId is a version id, so find the app that version belongs to
+  // contentAppId is a version id, so find the app that version belongs to.
+  // Devices use it only in kiosk mode (SyncResource), and outside kiosk mode the MDM tab hides
+  // the field, so a stale value must not lock the app
   private readonly contentAppPkg = computed(() => {
-    const contentAppId =
-      this.configurationDetailsFacadeService.currentConfiguration()?.contentAppId;
+    const configuration = this.configurationDetailsFacadeService.currentConfiguration();
+    const contentAppId = configuration?.kioskMode ? configuration.contentAppId : null;
 
     if (!contentAppId) {
       return null;
