@@ -14,6 +14,7 @@ import { TColumnConfig } from '../../../../../hmdm-ui-kit/src/lib/table/types/co
 import { SettingsFacadeService } from '../../shared/services/settings-facade.service';
 import { ActionsCell } from '../components/actions-cell/actions-cell';
 import { ConfigurationCell } from '../components/configuration-cell/configuration-cell';
+import { GroupsCell } from '../components/groups-cell/groups-cell';
 import { STATUS_MAPPER } from '../const/status-mapper';
 import { DevicesFacadeService } from '../services/devices-facade.service';
 import { TDevice } from '../types/device.type';
@@ -97,6 +98,7 @@ export class DeviceTableConfig {
         {
           field: 'group',
           title: 'table.heading.device.group',
+          cellRenderer: GroupsCell,
         },
         {
           field: 'launcherVersion',
