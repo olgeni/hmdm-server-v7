@@ -40,11 +40,25 @@ public class SpaFilter implements Filter {
         if (!contextPath.isEmpty() && (!passThrough || path.equals("/index.html"))) {
             sendContextIndexHtml(httpRequest, (HttpServletResponse) response, contextPath);
         } else if (passThrough) {
+            if (isUnhashedEntryFile(path)) {
+                ((HttpServletResponse) response).setHeader("Cache-Control", "no-cache");
+            }
             chain.doFilter(request, response);
         } else {
             // Redirect all other requests to index.html
+            ((HttpServletResponse) response).setHeader("Cache-Control", "no-cache");
             request.getRequestDispatcher("/index.html").forward(request, response);
         }
+    }
+
+    // Files whose names stay the same from one build to the next but which name the build's hashed
+    // chunks. Without Cache-Control, browsers cache them by heuristic and can load a new build's
+    // main bundle with the previous build's federation manifest. Revalidating costs a 304
+    private static boolean isUnhashedEntryFile(String path) {
+        return path.equals("/index.html") ||
+                path.endsWith("/remoteEntry.json") ||
+                path.endsWith("/importmap.json") ||
+                path.endsWith("/ngsw.json");
     }
 
     private void sendContextIndexHtml(HttpServletRequest request, HttpServletResponse response, String contextPath)
