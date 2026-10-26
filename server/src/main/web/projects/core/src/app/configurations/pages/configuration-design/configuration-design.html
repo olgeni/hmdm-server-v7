@@ -1,11 +1,12 @@
 <form [formGroup]="formGroup" class="design">
   <div class="design-row">
-    <!--
-      <hmdm-checkbox
-        formControlName="useDefaultDesignSettings"
-        [label]="'form.configuration.settings.design.use.default' | translate"
-      ></hmdm-checkbox>
-    -->
+    <!-- While ticked, devices get the default design's colors, background image, icon size
+         and title instead of the fields below (SyncResource). Configurations from the initial
+         data have it ticked, so it must stay visible to be unticked -->
+    <hmdm-checkbox
+      formControlName="useDefaultDesignSettings"
+      [label]="'form.configuration.settings.design.use.default' | translate"
+    ></hmdm-checkbox>
 
     <hmdm-checkbox
       formControlName="displayStatus"
