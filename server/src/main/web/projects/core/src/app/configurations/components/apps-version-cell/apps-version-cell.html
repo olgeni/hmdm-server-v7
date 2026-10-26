@@ -1,5 +1,34 @@
 <div class="cell">
-  <span>{{ params().data.version }}</span>
+  @if (canChangeVersion()) {
+    <button
+      class="cell-version"
+      type="button"
+      [matMenuTriggerFor]="versionMenu"
+      [matTooltip]="'form.configuration.app.version.select.select.title' | translate"
+      [matTooltipShowDelay]="500"
+      (menuOpened)="loadVersions()"
+    >
+      <span>{{ params().data.version }}</span>
+      <mat-icon>arrow_drop_down</mat-icon>
+    </button>
+
+    <mat-menu #versionMenu="matMenu">
+      @if (versions(); as versions) {
+        @for (version of versions; track version.id) {
+          <button mat-menu-item (click)="onVersionClick(version)">
+            <mat-icon>{{ version.id === params().data.usedVersionId ? 'check' : '' }}</mat-icon>
+            <span>{{ version.version }}</span>
+          </button>
+        }
+      } @else {
+        <div class="cell-loading">
+          <mat-spinner diameter="20"></mat-spinner>
+        </div>
+      }
+    </mat-menu>
+  } @else {
+    <span>{{ params().data.version }}</span>
+  }
 
   @if (canUpgrade()) {
     <a
@@ -11,7 +40,7 @@
           | translate
             : {
                 installedVersion: params().data.version,
-                latestVersion: params().data.latestVersionText
+                latestVersion: params().data.latestVersionText,
               }
       "
       (click)="onUpgradeClick()"

@@ -1,11 +1,12 @@
 import { computed, effect, inject, Injectable, signal, WritableSignal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ConfirmDialog } from 'hmdm-ui-kit';
-import { filter, finalize, switchMap, take } from 'rxjs';
+import { filter, finalize, map, Observable, of, switchMap, take, tap } from 'rxjs';
 import { SnackBarService } from '../../shared/services/snack-bar.service';
 import { TOption, TTableSortState } from '../../../../../hmdm-ui-kit/src/public-api';
 import { ApplicationService } from '../../entity/application/services/application.service';
 import { TApplicationDTO } from '../../entity/application/types/application-dto.type';
+import { TVersionDTO } from '../../entity/application/types/version-dto.type';
 import { ConfigurationService } from '../../entity/configuration/services/configuration.service';
 import { APP_ACTION } from '../const/app-action.const';
 import { ConfigurationDetailsFacadeService } from './configuration-details-facade.service';
@@ -32,6 +33,9 @@ export class ConfigurationAppsFacadeService {
   private readonly _sortState: WritableSignal<TTableSortState | null> = signal(null);
   private readonly _applications: WritableSignal<TApplicationDTO[]> = signal([]);
   private readonly _allApplications: WritableSignal<TApplicationDTO[]> = signal([]);
+  // Versions of each app, loaded the first time its version picker is opened after the
+  // configuration loads
+  private readonly versionsCache = new Map<number, TVersionDTO[]>();
 
   applications = this._applications.asReadonly();
   isLoadingApplications: WritableSignal<boolean> = signal(false);
@@ -144,6 +148,7 @@ export class ConfigurationAppsFacadeService {
 
   loadApplications(configurationId: number): void {
     this.isLoadingApplications.set(true);
+    this.versionsCache.clear();
 
     this.configurationService
       .getConfigurationApps(configurationId)
@@ -296,6 +301,62 @@ export class ConfigurationAppsFacadeService {
     );
   }
 
+  // Versions the app's row can be switched to, newest first. A version with no file can't be
+  // installed, and one that another row of the same app already uses would make two rows claim it
+  getVersionOptions(app: TApplicationDTO): Observable<TVersionDTO[]> {
+    const cached = this.versionsCache.get(app.id);
+    const versions$ = cached
+      ? of(cached)
+      : this.applicationService
+          .getVersionsByApplicationId(app.id)
+          .pipe(tap((versions) => this.versionsCache.set(app.id, versions)));
+
+    return versions$.pipe(
+      map((versions) =>
+        versions.filter(
+          (version) =>
+            (version.url || version.urlArmeabi || version.urlArm64) &&
+            !this._applications().some(
+              (a) =>
+                a !== app && a.id === app.id && a.version === version.version && this.isListed(a),
+            ),
+        ),
+      ),
+    );
+  }
+
+  // Switches the clicked entry to another version of the same app. Stored when the configuration
+  // is saved. The entry is matched by object: id and version are what this changes
+  setAppVersion(app: TApplicationDTO, version: TVersionDTO): void {
+    if (version.id === app.usedVersionId) {
+      return;
+    }
+
+    this.configurationDetailsFacadeService.markUnsavedChanges();
+
+    this._applications.update((apps) =>
+      apps
+        // The server also lists the latest version of every app outside the configuration;
+        // drop that entry if it is the one picked, or it would share the row's id and version
+        .filter((a) => a === app || !(a.id === app.id && a.version === version.version))
+        .map((a) =>
+          a === app
+            ? {
+                ...a,
+                usedVersionId: version.id,
+                version: version.version,
+                versionCode: version.versionCode,
+                url: version.url,
+                urlArmeabi: version.urlArmeabi,
+                urlArm64: version.urlArm64,
+                split: version.split,
+                outdated: version.id !== a.latestVersion,
+              }
+            : a,
+        ),
+    );
+  }
+
   // "Upgrade" link of an outdated app: after confirmation the server switches the configuration
   // to the app's latest version at once (as in v5), then the configuration is reloaded.
   // Unsaved changes would be lost by that reload, so they have to be saved first
@@ -310,7 +371,8 @@ export class ConfigurationAppsFacadeService {
       return;
     }
 
-    const configurationName = this.configurationDetailsFacadeService.currentConfiguration()?.name ?? '';
+    const configurationName =
+      this.configurationDetailsFacadeService.currentConfiguration()?.name ?? '';
 
     this.dialog
       .open(ConfirmDialog, {
